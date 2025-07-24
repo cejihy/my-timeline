@@ -1,0 +1,571 @@
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高级智能历史时间线</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- 新增：引入Material Symbols图标 -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+    <style>
+        /* 简化版按钮样式 */
+        .slim-btn {
+            background-color: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--line-color);
+            padding: 8px; /* 减少内边距，只保留符号空间 */
+            border-radius: 50%; /* 改为圆形按钮 */
+            cursor: pointer;
+            font-size: 1rem; /* 增大符号大小 */
+            font-weight: 500;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: none;
+            min-width: 36px; /* 确保按钮大小一致 */
+        }
+
+        .slim-btn:hover {
+            background-color: rgba(59, 130, 246, 0.05);
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .slim-btn.active {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        /* 其他样式保持不变... */
+        :root {
+            --bg-color: #f8f9fa;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --card-bg: #ffffff;
+            --line-color: #e5e7eb;
+            --accent-color: #3b82f6;
+            --accent-color-dark: #2563eb;
+            --shadow-color: rgba(0, 0, 0, 0.05);
+            --font-sans: 'Inter', 'Noto Sans SC', "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        [data-theme="dark"] {
+            --bg-color: #111827;
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --card-bg: #1f2937;
+            --line-color: #374151;
+            --accent-color: #60a5fa;
+            --accent-color-dark: #3b82f6;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .container {max-width: 800px; margin: 0 auto; padding: 40px 20px;}
+        .header { text-align: center; margin-bottom: 40px; position: relative; }
+        h1 { font-size: 2.25rem; font-weight: 700; }
+        .header p { color: var(--text-secondary); font-size: 1.1rem; margin-top: 10px; }
+        #theme-toggle { position: absolute; top: 0; right: 0; background: transparent; border: 1px solid var(--line-color); width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); padding: 0; transition: all 0.3s; }
+        #theme-toggle:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+        #theme-toggle svg { width: 20px; height: 20px; }
+        [data-theme="light"] .icon-moon { display: none; }
+        [data-theme="dark"] .icon-sun { display: none; }
+
+        /* --- [新] 抽屜式快速添加模块 --- */
+        .quick-add-wrapper {
+            display: grid;
+            grid-template-rows: 0fr; /* 默认高度为0，收起状态 */
+            transition: grid-template-rows 0.4s ease-in-out;
+            margin-bottom: 20px;
+        }
+        .quick-add-wrapper.is-open {
+            grid-template-rows: 1fr; /* 展开状态，高度由内容决定 */
+            margin-bottom: 60px; /* 展开时增加与下方时间线的间距 */
+        }
+        #quick-add-container {
+            overflow: hidden; /* 关键：配合grid动画 */
+        }
+        #quick-add-form { display: flex; border: 1px solid var(--line-color); border-radius: 12px; box-shadow: 0 4px 12px var(--shadow-color); background-color: var(--card-bg); }
+        #quick-add-input { flex-grow: 1; border: none; background: transparent; padding: 16px 20px; font-size: 1.1rem; color: var(--text-primary); outline: none;}
+        #quick-add-input::placeholder { color: var(--text-secondary); }
+        #quick-add-btn { flex-shrink: 0; background-color: var(--accent-color); color: white; border: none; padding: 0 16px; border-radius: 0 11px 11px 0; font-size: 1.25rem; font-weight: 500; cursor: pointer; transition: background-color 0.2s; }
+        #quick-add-btn:hover { background-color: var(--accent-color-dark); }
+
+        .timeline {position: relative;}
+        .timeline::before { content: ''; position: absolute; width: 2px; background-color: var(--line-color); top: 10px; bottom: 10px; left: 50%; margin-left: -1px; transition: background-color 0.3s;}
+        @keyframes fadeIn-up {from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); }}
+        .timeline-item {position: relative;width: 50%;padding: 20px 40px;cursor: pointer;opacity: 0;animation: fadeIn-up 0.6s ease-out forwards; transition: opacity 0.3s;}
+        .timeline-item.is-ghosted { opacity: 0.5; }
+        .timeline-item.left { text-align: right; }
+        .timeline-item.right { left: 50%; text-align: left; }
+        .timeline-item::after {content: ''; position: absolute; width: 12px; height: 12px; background-color: var(--bg-color); border: 3px solid var(--line-color); top: 30px; border-radius: 50%; z-index: 1; transition: all 0.3s ease-in-out;}
+        .timeline-item.left::after { right: -7px; }
+        .timeline-item.right::after { left: -7px; }
+        .timeline-item::before {content: ''; position: absolute; width: 20px; height: 2px; background-color: var(--line-color); top: 35px; z-index: 0; transition: background-color 0.3s ease-in-out;}
+        .timeline-item.left::before { right: 5px; }
+        .timeline-item.right::before { left: 5px; }
+        .timeline-item:hover::after {border-color: var(--accent-color);transform: scale(1.1);}
+        .timeline-item:hover::before {background-color: var(--accent-color);}
+        .timeline-year {display: block;font-size: 0.9rem;font-weight: 500;color: var(--text-secondary);margin: 0;}
+        .timeline-title-wrapper {display: flex;align-items: center;margin-top: 8px;}
+        .timeline-item.left .timeline-title-wrapper { justify-content: flex-end; }
+        .timeline-item.right .timeline-title-wrapper { justify-content: flex-start; }
+        .timeline-title {font-weight: 600;font-size: 1.25rem;margin: 0; border-radius: 4px; padding: 2px 4px;}
+        .expand-icon {font-size: 1.25rem;color: var(--text-secondary);margin: 0 8px;transition: transform 0.4s ease-in-out;flex-shrink: 0;}
+        .timeline-item.left .expand-icon { order: 1; }
+        .timeline-item.right .expand-icon { order: -1; }
+        .timeline-item.expanded .expand-icon {transform: rotate(45deg);}
+        .details-wrapper {display: grid; grid-template-rows: 0fr;transition: grid-template-rows 0.4s ease-in-out;}
+        .timeline-item.expanded .details-wrapper { grid-template-rows: 1fr; }
+        .timeline-details {overflow: hidden; opacity: 0;transition: opacity 0.4s ease-in-out;}
+        .timeline-item.expanded .timeline-details { opacity: 1; }
+        .timeline-text {font-size: 1rem; color: var(--text-secondary); margin-top: 16px; line-height: 1.7; border-radius: 4px; padding: 4px;}
+        .timeline-actions { margin-top: 15px; display: flex; gap: 6px; } /* 调整间距 */
+        .timeline-item.left .timeline-actions { justify-content: flex-end; }
+
+        /* 修改：编辑和删除按钮样式 */
+        .action-btn {
+            background: transparent;
+            border: none; /* 移除边框 */
+            color: var(--text-secondary);
+            padding: 4px; /* 减小内边距 */
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 0.9rem; /* 减小图标大小 */
+            font-weight: 500;
+            transition: all 0.3s;
+            min-width: 28px; /* 减小按钮尺寸 */
+            opacity: 0.7; /* 默认半透明 */
+        }
+
+        .action-btn:hover {
+            background-color: rgba(59, 130, 246, 0.1); /* 悬停时添加背景 */
+            color: var(--accent-color);
+            opacity: 1; /* 悬停时完全不透明 */
+        }
+
+        [contenteditable="true"] {background-color: rgba(59, 130, 246, 0.1);outline: 2px solid var(--accent-color);box-shadow: 0 0 5px rgba(59, 130, 246, 0.1);}
+
+        /* 新增：保存通知样式 */
+        .save-notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            z-index: 100;
+            pointer-events: none;
+        }
+        .save-notification.show {
+            opacity: 1;
+        }
+
+        @media screen and (max-width: 768px) { 
+            .container {padding: 30px 10px;} 
+            .timeline-item {padding: 15px 15px;} 
+            .timeline-item::before {width: 15px;} 
+            .timeline-item.left::before {right: -1px;} 
+            .timeline-item.right::before {left: -1px;} 
+            .timeline-title {font-size: 1.1rem;} 
+            #theme-toggle {position: static; margin: 20px auto 0;} 
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <button id="theme-toggle" title="切换深色模式">
+            <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"></path></svg>
+            <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25c0 5.385 4.365 9.75 9.75 9.75 2.833 0 5.39-1.21 7.252-3.198z"></path></svg>
+        </button>
+        <h1>时间之旅</h1>
+        <p>一段关于世界历史的极简探索</p>
+        <div style="margin-top: 40px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;">
+            <button id="show-add-bar-btn" class="slim-btn" title="添加新纪元">
+                <span class="material-symbols-outlined">add</span>
+            </button>
+            <button id="save-timeline-btn" class="slim-btn" title="保存时间线">
+                <span class="material-symbols-outlined">save</span>
+            </button>
+
+            <!-- 修改：将上传按钮改为与其他按钮一致的样式 -->
+            <button id="import-timeline-btn" class="slim-btn" title="导入时间线">
+                <span class="material-symbols-outlined">upload_file</span>
+            </button>
+            <button id="export-timeline-btn" class="slim-btn" title="导出时间线">
+                <span class="material-symbols-outlined">download</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="quick-add-wrapper" id="quick-add-wrapper">
+        <div id="quick-add-container">
+            <form id="quick-add-form">
+                <input type="text" id="quick-add-input" placeholder="+ 添加事件 (如: 1911年 辛亥革命)，回车确认" autocomplete="off">
+                <button id="quick-add-btn" type="submit">
+                    <span class="material-symbols-outlined">add</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="timeline" id="timeline-container"></div>
+
+    <!-- 新增：保存通知元素 -->
+    <div id="save-notification" class="save-notification">
+        已保存
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // 尝试从本地存储中加载时间线事件
+        let timelineEvents = JSON.parse(localStorage.getItem('timelineEvents')) || [
+            { id: 1, year: -3100, title: '楔形文字的发明', description: '在美索不达米亚，苏美尔人开发了楔形文字。', position: 'auto' },
+            { id: 2, year: -753, title: '罗马建城', description: '根据传说，罗穆卢斯与瑞摩斯兄弟建立了罗马城。', position: 'auto' },
+            { id: 4, year: 105, title: '造纸术的改进', description: '东汉的蔡伦改进了造纸工艺，促进了文化传播。', position: 'auto' },
+            { id: 8, year: 1455, title: '古腾堡印刷革命', description: '约翰内斯·古腾堡的活字印刷术开启了欧洲的印刷革命。', position: 'auto' },
+            { id: 9, year: 1492, title: '新旧世界交汇', description: '克里斯托弗·哥伦布的航行连接了美洲与欧亚非大陆。', position: 'auto' },
+            { id: 15, year: 1969, title: '人类登月', description: '阿波罗11号任务将人类送上月球。', position: 'auto' },
+            { id: 17, year: 1991, title: '万维网的诞生', description: '蒂姆·伯纳斯-李的万维网项目向公众开放。', position: 'auto' }
+        ];
+
+        const elements = {
+            timelineContainer: document.getElementById('timeline-container'),
+            themeToggle: document.getElementById('theme-toggle'),
+            quickAddForm: document.getElementById('quick-add-form'),
+            quickAddInput: document.getElementById('quick-add-input'),
+            showAddBarBtn: document.getElementById('show-add-bar-btn'),
+            quickAddWrapper: document.getElementById('quick-add-wrapper'),
+            saveTimelineBtn: document.getElementById('save-timeline-btn'),
+            saveNotification: document.getElementById('save-notification'),
+            exportTimelineBtn: document.getElementById('export-timeline-btn'),
+            importTimelineBtn: document.getElementById('import-timeline-btn')
+        };
+
+        // 渲染时间线
+        function renderTimeline() {
+            elements.timelineContainer.innerHTML = '';
+            const sortedEvents = timelineEvents.sort((a, b) => a.year - b.year);
+            let autoIndex = 0;
+            sortedEvents.forEach((event, index) => {
+                let side = (event.position === 'auto') ? (autoIndex++ % 2 === 0 ? 'left' : 'right') : event.position;
+                const displayYear = event.year >= 0 ? `${event.year} 年` : `公元前 ${Math.abs(event.year)} 年`;
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `timeline-item ${side}`;
+                itemDiv.style.animationDelay = `${index * 120}ms`;
+                itemDiv.dataset.id = event.id;
+
+                itemDiv.innerHTML = `
+                    <p class="timeline-year">${displayYear}</p>
+                    <div class="timeline-title-wrapper">
+                        <h3 class="timeline-title" contenteditable="false">${event.title}</h3>
+                        <div class="expand-icon">+</div>
+                    </div>
+                    <div class="details-wrapper">
+                        <div class="timeline-details">
+                            <p class="timeline-text" contenteditable="false">${event.description || ''}</p>
+                            <div class="timeline-actions">
+                                <button class="action-btn edit-btn" title="编辑">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="action-btn delete-btn" title="删除">
+                                    <span class="material-symbols-outlined">delete</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                elements.timelineContainer.appendChild(itemDiv);
+
+                // 使用addEventListener注册事件处理
+                itemDiv.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('action-btn') || e.target.isContentEditable) return;
+                    toggleExpand(itemDiv);
+                });
+
+                // 注册编辑按钮事件
+                const editBtn = itemDiv.querySelector('.edit-btn');
+                editBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleEdit(itemDiv);
+                });
+
+                // 注册删除按钮事件
+                const deleteBtn = itemDiv.querySelector('.delete-btn');
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteEvent(itemDiv);
+                });
+            });
+        }
+
+        // 展开/收起时间线项
+        function toggleExpand(element) {
+            const isExpanded = element.classList.contains('expanded');
+            document.querySelectorAll('.timeline-item.expanded').forEach(item => {
+                if (item !== element) item.classList.remove('expanded');
+            });
+
+            element.classList.toggle('expanded');
+        }
+
+        // 编辑时间线项
+        function toggleEdit(itemDiv) {
+            const titleH3 = itemDiv.querySelector('.timeline-title');
+            const textP = itemDiv.querySelector('.timeline-text');
+            const editBtn = itemDiv.querySelector('.edit-btn');
+            const isEditing = titleH3.isContentEditable;
+
+            if (isEditing) {
+                titleH3.contentEditable = 'false';
+                textP.contentEditable = 'false';
+                editBtn.innerHTML = '<span class="material-symbols-outlined">edit</span>';
+                itemDiv.classList.remove('is-editing');
+                // 编辑完成后不自动保存，等待用户手动点击保存按钮
+            } else {
+                titleH3.contentEditable = 'true';
+                textP.contentEditable = 'true';
+                editBtn.innerHTML = '<span class="material-symbols-outlined">check</span>';
+                itemDiv.classList.add('is-editing');
+                titleH3.focus();
+            }
+        }
+
+        // 删除时间线项
+        function deleteEvent(itemDiv) {
+            const id = parseInt(itemDiv.dataset.id, 10);
+
+            if (confirm('您确定要删除这个时刻吗？')) {
+                timelineEvents = timelineEvents.filter(e => e.id !== id);
+                renderTimeline();
+                saveTimeline(); // 删除操作后立即保存
+            }
+        }
+
+        // 中文数字转阿拉伯数字
+        function chineseToArabic(chineseNum) {
+            if (!isNaN(parseInt(chineseNum))) return parseInt(chineseNum);
+
+            const map = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10 };
+
+            if (chineseNum.length === 1) return map[chineseNum];
+            if (chineseNum === '十') return 10;
+            if (chineseNum.startsWith('十')) return 10 + map[chineseNum[1]];
+            if (chineseNum.endsWith('十')) return map[chineseNum[0]] * 10;
+            if (chineseNum.includes('十')) {
+                const parts = chineseNum.split('十');
+                return map[parts[0]] * 10 + map[parts[1]];
+            }
+
+            return null;
+        }
+
+        // 从文本解析事件信息
+        function parseEventFromText(text) {
+            let year = null;
+            let title = '新事件';
+            let remainingText = text;
+
+            const centuryMatch = text.match(/(公元前|前)?\s*(\d+|[一二三四五六七八九十]+)\s*世纪/);
+            if (centuryMatch) {
+                const isBCE = !!centuryMatch[1];
+                const numberPart = centuryMatch[2];
+                const centuryNum = chineseToArabic(numberPart);
+
+                if (centuryNum) {
+                    year = (centuryNum - 1) * 100 + 50;
+                    if (isBCE) year = -year;
+                }
+
+                remainingText = text.replace(centuryMatch[0], '').trim();
+            } else {
+                const yearMatchBC = text.match(/(?:公元前|前)\s*(\d+)/);
+                if (yearMatchBC && yearMatchBC[0]) {
+                    year = -parseInt(yearMatchBC[1], 10);
+                    remainingText = text.replace(yearMatchBC[0], '').trim();
+                } else {
+                    const yearMatchAD = text.match(/(\d{3,4})\s*年?/);
+                    if (yearMatchAD && yearMatchAD[0]) {
+                        year = parseInt(yearMatchAD[1], 10);
+                        remainingText = text.replace(yearMatchAD[0], '').trim();
+                    }
+                }
+            }
+
+            if (remainingText) {
+                title = remainingText;
+            }
+
+            return { year, title };
+        }
+
+        // 显示保存通知
+        function showSaveNotification(message) {
+            elements.saveNotification.textContent = message || '已保存';
+            elements.saveNotification.classList.add('show');
+            setTimeout(() => {
+                elements.saveNotification.classList.remove('show');
+            }, 2000);
+        }
+
+        // 保存时间线到本地存储
+        function saveTimeline() {
+            localStorage.setItem('timelineEvents', JSON.stringify(timelineEvents));
+            showSaveNotification();
+        }
+
+        // 批量保存所有编辑过的事件
+        function saveAllEditedEvents() {
+            document.querySelectorAll('.timeline-item.is-editing').forEach(item => {
+                const id = parseInt(item.dataset.id, 10);
+                const titleH3 = item.querySelector('.timeline-title');
+                const textP = item.querySelector('.timeline-text');
+                const eventData = timelineEvents.find(e => e.id === id);
+
+                if (eventData) {
+                    eventData.title = titleH3.textContent.trim();
+                    eventData.description = textP.textContent.trim();
+                }
+
+                // 保存后将编辑状态移除
+                item.classList.remove('is-editing');
+                titleH3.contentEditable = 'false';
+                textP.contentEditable = 'false';
+                const editBtn = item.querySelector('.edit-btn');
+                if (editBtn) editBtn.innerHTML = '<span class="material-symbols-outlined">edit</span>';
+            });
+
+            saveTimeline();
+        }
+
+        // 新增：导出时间线到文件
+        function exportTimelineToFile() {
+            saveAllEditedEvents(); // 先保存所有编辑
+
+            const dataStr = JSON.stringify(timelineEvents, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = '时间线数据.json';
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(url);
+
+            showSaveNotification('已导出到文件');
+        }
+
+        // 主题切换逻辑
+        const prefersDarkScheme = window.matchMedia("(prefers-color-scheme: dark)");
+        const currentTheme = localStorage.getItem("theme");
+
+        if (currentTheme == "dark") {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        } else if (currentTheme == "light") {
+            document.documentElement.setAttribute('data-theme', 'light');
+        } else if (prefersDarkScheme.matches) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
+
+        elements.themeToggle.addEventListener('click', () => {
+            const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+        });
+
+        // 显示/隐藏添加栏
+        elements.showAddBarBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            elements.quickAddWrapper.classList.toggle('is-open');
+
+            if (elements.quickAddWrapper.classList.contains('is-open')) {
+                elements.quickAddInput.focus();
+            }
+        });
+
+        // 提交添加事件表单
+        elements.quickAddForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const text = elements.quickAddInput.value.trim();
+
+            if (!text) return;
+
+            const parsed = parseEventFromText(text);
+
+            if (parsed.year === null) {
+                alert('未能识别到年份或世纪，请检查您的输入。\n例如: "1776年 独立战争" 或 "18世纪 工业革命"');
+                return;
+            }
+
+            const newEvent = {
+                id: Date.now(),
+                year: parsed.year,
+                title: parsed.title,
+                description: '',
+                position: 'auto'
+            };
+
+            timelineEvents.push(newEvent);
+            renderTimeline();
+            elements.quickAddWrapper.classList.remove('is-open');
+
+            const newItemElement = document.querySelector(`.timeline-item[data-id='${newEvent.id}']`);
+
+            if (newItemElement) {
+                newItemElement.classList.add('is-ghosted');
+                newItemElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                setTimeout(() => {
+                    toggleExpand(newItemElement);
+
+                    const editBtn = newItemElement.querySelector('.edit-btn');
+                    if(editBtn) toggleEdit(newItemElement);
+
+                    const descArea = newItemElement.querySelector('.timeline-text');
+                    if (descArea) descArea.focus();
+
+                    newItemElement.classList.remove('is-ghosted');
+                }, 400);
+            }
+
+            elements.quickAddInput.value = '';
+            saveTimeline(); // 添加新事件后立即保存
+        });
+
+        // 点击页面其他地方收起添加栏
+        document.addEventListener('click', (e) => {
+            if (!elements.quickAddWrapper.contains(e.target) && !elements.showAddBarBtn.contains(e.target)) {
+                elements.quickAddWrapper.classList.remove('is-open');
+            }
+        });
+
+        // 保存按钮点击事件
+        elements.saveTimelineBtn.addEventListener('click', saveAllEditedEvents);
+
+        // 新增：导出按钮点击事件
+        elements.exportTimelineBtn.addEventListener('click', exportTimelineToFile);
+
+        // 初始渲染时间线
+        renderTimeline();
+    });
+</script>
+</body>
+</html>    
