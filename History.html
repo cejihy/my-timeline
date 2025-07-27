@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>历史时间线 - 极简主义版</title>
+<style>
+/* --- 全局样式 & Reset --- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: #FFFFFF; /* 纯白色背景 */
+  color: #1A1A1A; /* 更深的文本色 */
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* 新增：概览模式浮动按钮样式 */
+#overviewToggleFloatingBtn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: linear-gradient(135deg, #88BBDD, #CCAAEE); /* 与模态框头部相同的渐变色 */
+    color: #FFFFFF;
+    border: none;
+    border-radius: 50%; /* 圆形按钮 */
+    width: 60px; /* 按钮大小 */
+    height: 60px;
+    font-size: 2em; /* 图标字体大小 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); /* 显著阴影 */
+    z-index: 999; /* 确保在其他内容之上 */
+    transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+    /* 概览模式激活时按钮的样式 */
+    transform: rotate(90deg); /* 旋转图标 */
+}
+
+#overviewToggleFloatingBtn.active {
+    background: linear-gradient(135deg, #CCAAEE, #88BBDD); /* 激活时颜色反转 */
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    transform: rotate(0deg); /* 激活时旋转回原位 */
+}
+
+#overviewToggleFloatingBtn:hover {
+    transform: scale(1.1) rotate(90deg); /* 悬停时放大并旋转 */
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+#overviewToggleFloatingBtn.active:hover {
+    transform: scale(1.1) rotate(0deg); /* 激活状态悬停时旋转回原位 */
+}
+
+
+/* --- 容器 & 头部 --- */
+.container {
+  max-width: 900px; /* 略窄，更多留白 */
+  margin: 0 auto;
+  padding: 80px 40px; /* 增加上下留白 */
+  transition: padding 0.8s ease-in-out;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 100px; /* 增加留白 */
+  padding: 0; /* 移除内边距 */
+  transition: margin-bottom 0.8s ease-in-out;
+}
+
+h1 {
+  font-size: 3.5rem; /* 更大标题 */
+  font-weight: 200; /* 更细字重 */
+  letter-spacing: -2px; /* 负间距 */
+  color: #1A1A1A;
+  transition: font-size 0.8s ease-in-out;
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: #555555; /* 更柔和的副标题颜色 */
+  font-weight: 300;
+  margin-top: 15px; /* 增加间距 */
+  transition: font-size 0.8s ease-in-out;
+}
+
+/* --- 原来的 controls-bar 样式（已隐藏） --- */
+.controls-bar {
+    display: none; /* 隐藏筛选和跳转的 controls-bar */
+}
+
+/* --- 时间轴核心样式 --- */
+.timeline {
+  position: relative;
+  padding-bottom: 150vh; /* 确保可滚动空间 */
+  transition: transform 0.8s ease-in-out, opacity 0.8s ease-in-out, height 0.8s ease-in-out, padding-bottom 0.8s ease-in-out; /* 新增过渡效果 */
+  transform-origin: top center; /* 动画中心点 */
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #E0E0E0; /* 更淡的线条颜色 */
+  left: 50%;
+  margin-left: -0.5px;
+  opacity: 1;
+  transition: all 0.8s ease-in-out; /* 垂直线动画 */
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 100px; /* 增加条目间距 */
+  width: 100%;
+  opacity: 0;
+  transform: translateY(40px); /* 初始偏移更大 */
+  transition: all 1s ease-out; /* 动画更慢 */
+}
+
+.timeline-item.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.timeline-item.china {
+  padding-right: calc(50% + 50px);
+  text-align: right;
+}
+
+.timeline-item.world {
+  padding-left: calc(50% + 50px);
+  text-align: left;
+}
+
+.timeline-point {
+  position: absolute;
+  width: 10px; /* 更小的点 */
+  height: 10px;
+  background: #FFFFFF; /* 白色点背景 */
+  border: 1px solid #AAAAAA; /* 极细边框 */
+  border-radius: 50%;
+  top: 30px;
+  left: 50%;
+  margin-left: -5px;
+  z-index: 1;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .05); /* 更柔和的光晕 */
+  transition: all .3s ease;
+}
+
+.timeline-point.china-point {
+  border-color: #88BBDD; /* 柔和的强调色 */
+}
+
+.timeline-point.world-point {
+  border-color: #CCAAEE; /* 柔和的强调色 */
+}
+
+.timeline-content {
+  background: #FFFFFF; /* 卡片纯白色背景 */
+  padding: 40px; /* 增加卡片内边距 */
+  border-radius: 4px; /* 减少圆角，更锐利 */
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .02); /* 更轻的阴影 */
+  transition: all .3s cubic-bezier(.4, 0, .2, 1);
+  border: 1px solid #EEEEEE; /* 极细边框，几乎不可见 */
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  margin-right: 30px;
+}
+
+.timeline-item.world .timeline-content {
+  margin-left: 30px;
+  margin-right: 0;
+}
+
+.timeline-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px; /* 更细的顶部线 */
+  background: linear-gradient(90deg, #88BBDD, #CCAAEE); /* 柔和渐变色 */
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .3s ease;
+}
+
+.timeline-content:hover::before {
+  transform: scaleX(1);
+}
+
+.timeline-content:hover {
+  box-shadow: 0 5px 15px rgba(0, 0, 0, .05); /* 提升阴影，更柔和 */
+  transform: translateY(-8px); /* 提升效果更明显 */
+}
+
+.timeline-year {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #555555;
+  margin-bottom: 12px; /* 增加间距 */
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 2px; /* 锐利方角 */
+  background-color: #F8F8F8; /* 更淡的背景 */
+}
+
+.timeline-title {
+  font-size: 1.25rem; /* 更大字体 */
+  font-weight: 500;
+  color: #1A1A1A;
+  margin-bottom: 15px; /* 增加间距 */
+}
+
+.timeline-description {
+  color: #444444; /* 更深的描述文字 */
+  font-size: 0.95rem;
+  line-height: 1.8; /* 增加行高 */
+}
+
+.timeline-tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 2px; /* 锐利方角 */
+  font-size: .8rem;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.china-tag {
+  background-color: rgba(136, 187, 221, .1); /* 柔和的强调色 */
+  color: #88BBDD;
+}
+
+.world-tag {
+  background-color: rgba(204, 170, 238, .1); /* 柔和的强调色 */
+  color: #CCAAEE;
+}
+
+/* --- 模态框样式 --- */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, .4); /* 更透明的背景 */
+  backdrop-filter: blur(8px); /* 更强的虚化 */
+  opacity: 0;
+  transition: opacity .5s ease; /* 更慢的过渡 */
+}
+
+.modal.active {
+  opacity: 1;
+}
+
+.modal-content {
+  background-color: #FFFFFF; /* 纯白色内容背景 */
+  margin: 2% auto; /* 靠上一些，增加四周留白 */
+  padding: 0;
+  border: none;
+  width: 90%; /* 略窄，更多留白 */
+  max-width: 700px; /* 进一步缩小 */
+  border-radius: 6px; /* 减少圆角 */
+  box-shadow: 0 15px 50px rgba(0, 0, 0, .2); /* 显著阴影 */
+  overflow: hidden;
+  transform: scale(.95); /* 更小的初始比例 */
+  transition: transform .5s ease, opacity .5s ease;
+  opacity: 0;
+}
+
+.modal.active .modal-content {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.modal-header {
+  padding: 30px 40px;
+  background: linear-gradient(135deg, #88BBDD, #CCAAEE); /* 柔和渐变 */
+  color: #FFFFFF;
+}
+
+.modal-title {
+  font-size: 2.2rem;
+  font-weight: 300;
+  letter-spacing: -0.8px;
+  margin-bottom: 8px;
+}
+
+.modal-year {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, .9);
+  margin-bottom: 15px;
+}
+
+.modal-tag {
+  display: inline-block;
+  padding: 6px 18px; /* 增加内边距 */
+  border-radius: 20px; /* 更圆的标签 */
+  font-size: .8rem;
+  font-weight: 500;
+  background-color: rgba(255, 255, 255, .25); /* 标签背景更明显 */
+  color: #FFFFFF;
+}
+
+.close {
+  color: rgba(255, 255, 255, .8);
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  font-size: 2.5rem; /* 更大关闭按钮 */
+  font-weight: 200; /* 更细字重 */
+  transition: all .3s;
+  z-index: 2;
+  line-height: 1;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.close:hover,
+.close:focus {
+  color: #FFFFFF;
+  cursor: pointer;
+  transform: rotate(90deg) scale(1.1);
+  background-color: rgba(255, 255, 255, 0.15); /* 悬停背景更明显 */
+}
+
+.modal-body {
+  padding: 50px; /* 增加内边距 */
+  max-height: 70vh; /* 略小高度，让模态框不那么高 */
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(136, 187, 221, .5) transparent; /* 滚动条颜色与主题色匹配 */
+}
+
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background-color: rgba(136, 187, 221, .5);
+  border-radius: 3px;
+}
+
+.modal-description {
+  color: #333333; /* 更深的描述文字 */
+  font-size: 1rem;
+  line-height: 1.8;
+  margin-bottom: 30px; /* 增加间距 */
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.modal-expanded {
+  color: #222222; /* 更深的扩展文字 */
+  font-size: 0.95rem;
+  line-height: 1.9;
+  padding-top: 30px; /* 增加间距 */
+  border-top: 1px solid #F0F0F0; /* 更淡的分割线 */
+  margin-top: 30px;
+}
+
+.modal-expanded h3 {
+  font-size: 1.3rem;
+  font-weight: 500;
+  color: #1A1A1A;
+  margin: 25px 0 12px; /* 增加间距 */
+}
+
+.modal-expanded p {
+  margin-bottom: 12px; /* 增加段落间距 */
+}
+
+.modal-navigation {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 50px; /* 增加间距 */
+  padding-top: 30px;
+  border-top: 1px solid #F0F0F0; /* 更淡的分割线 */
+}
+
+.nav-btn {
+  background: #E0E0E0; /* 按钮背景色 */
+  border: none;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #444444; /* 按钮文字颜色 */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all .2s;
+  padding: 12px 20px; /* 增加按钮内边距 */
+  border-radius: 4px; /* 减少圆角 */
+}
+
+.nav-btn:hover {
+  background-color: #D0D0D0; /* 悬停时更深 */
+  color: #1A1A1A;
+}
+
+.nav-btn:disabled {
+  color: #AAAAAA;
+  cursor: not-allowed;
+  background: #F0F0F0;
+}
+
+.nav-btn span {
+  margin: 0 8px; /* 增加箭头与文字间距 */
+}
+
+/* --- 概览模式样式 (优化版) --- */
+body.overview-active {
+    overflow: hidden; /* 在概览模式下禁用页面滚动 */
+}
+
+/* 隐藏头部标题和副标题 */
+body.overview-active h1,
+body.overview-active .subtitle {
+    font-size: 0; /* 隐藏文字，保留布局 */
+    margin: 0;
+    padding: 0;
+    visibility: hidden;
+    pointer-events: none;
+    height: 0; /* 确保不占据空间 */
+    line-height: 0;
+}
+
+body.overview-active .container {
+    padding-top: 30px; /* 减少顶部 padding */
+    padding-bottom: 30px;
+}
+
+body.overview-active header {
+    margin-bottom: 30px; /* 减少头部下边距 */
+}
+
+/* 整个时间线容器的过渡效果 */
+.timeline.overview-mode-active {
+    padding-bottom: 0; /* 概览模式下移除底部填充 */
+    height: calc(100vh - 100px); /* 适应全屏，减去头部和浮动按钮的空间 */
+    overflow-y: auto; /* **允许滚动** */
+    scrollbar-width: none; /* Firefox 隐藏滚动条 */
+    -ms-overflow-style: none; /* IE/Edge 隐藏滚动条 */
+    display: flex;
+    flex-wrap: wrap; /* 允许条目换行 */
+    justify-content: center; /* 居中排列 */
+    align-content: flex-start; /* 从顶部开始排列 */
+    gap: 6px; /* 概览模式下条目之间的更小间距 */
+    align-items: flex-start; /* 确保顶部对齐 */
+    transform: scale(1); /* 移除整体缩小 */
+    opacity: 1; /* 移除整体透明 */
+    pointer-events: auto; /* 确保可以点击 */
+    margin: 0 auto; /* 确保概览模式下依然居中 */
+    max-width: 900px; /* 保持与容器宽度一致 */
+
+    /* 添加背景刻度线（伪元素） */
+    position: relative;
+}
+
+/* Webkit 浏览器隐藏滚动条 */
+.timeline.overview-mode-active::-webkit-scrollbar {
+    display: none;
+}
+
+
+/* 概览模式下隐藏原始时间轴线，并添加新的垂直刻度线效果 */
+.timeline.overview-mode-active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px; /* 稍微粗一点的刻度线 */
+    /* background: repeating-linear-gradient(to bottom, transparent, transparent 99px, #ccc 100px, #ccc 101px); /* 垂直间隔线 */
+    background: repeating-linear-gradient(to bottom,
+        #ddd, /* 淡灰色线条 */
+        #ddd 1px, /* 线的长度 */
+        transparent 1px, /* 透明间隔 */
+        transparent 10px /* 间隔的长度 */
+    );
+    left: 50%; /* 定位在中间 */
+    transform: translateX(-50%); /* 精确居中 */
+    opacity: 0.5; /* 更透明 */
+    z-index: 0; /* 确保在卡片下方 */
+}
+
+
+/* 概览模式下年份分组标签的样式 */
+.timeline-year-group {
+    flex-basis: 100%; /* 占据整行 */
+    text-align: center;
+    font-size: 1.5rem; /* 字体更小更精致 */
+    font-weight: 300;
+    color: #88BBDD;
+    margin: 15px 0 10px; /* 减少上下留白 */
+    padding: 5px 0;
+    border-bottom: 1px solid #E0E0E0; /* 实线分隔 */
+    position: relative;
+    z-index: 5; /* 确保在卡片之上 */
+    background-color: #FFFFFF; /* 确保背景是白色，覆盖其下内容 */
+    padding-left: 10px;
+    padding-right: 10px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.02); /* 增加一点阴影，让它浮起来 */
+}
+
+/* 特定历史时期标题的样式，区分中/世界历史 */
+.timeline-period-title {
+    flex-basis: 100%; /* 占据整行 */
+    text-align: center;
+    font-size: 2rem; /* 更大字体，强调时期名称 */
+    font-weight: 600;
+    margin: 40px 0 20px; /* 上下更大留白 */
+    padding: 10px 20px;
+    border-bottom: 2px solid; /* 更粗的下划线 */
+    position: sticky; /* 尝试粘性定位，随滚动显示 */
+    top: 0;
+    z-index: 10; /* 确保在最上层 */
+    background-color: #FFFFFF; /* 背景，防止与下方内容重叠 */
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05); /* 阴影 */
+    transition: all 0.3s ease-in-out;
+}
+
+.timeline-period-title.world-period {
+    color: #CCAAEE; /* 世界历史时期用紫色系 */
+    border-color: #CCAAEE;
+}
+
+.timeline-period-title.china-period {
+    color: #88BBDD; /* 中国历史时期用蓝色系 */
+    border-color: #88BBDD;
+}
+
+
+.timeline-item.overview-mode-active {
+    width: 120px; /* 概览模式下每个条目进一步更窄 */
+    height: 65px; /* 固定高度，确保对齐 */
+    margin-bottom: 6px; /* 更小间距 */
+    opacity: 1 !important; /* 强制显示，不等待滚动动画 */
+    transform: translateY(0) !important; /* 强制不偏移 */
+    flex-shrink: 0;
+    flex-grow: 0;
+    padding: 0; /* 移除左右分栏的padding */
+    text-align: center !important; /* 文本居中 */
+    transition: all 0.2s ease-out; /* 快速的hover过渡 */
+    cursor: pointer; /* 确保可点击 */
+    position: relative; /* 用于 tooltip 定位 */
+}
+
+/* 概览模式下隐藏圆点 */
+.timeline-item.overview-mode-active .timeline-point {
+    display: none;
+}
+
+.timeline-item.overview-mode-active .timeline-content {
+    margin: 0 !important;
+    padding: 6px 8px; /* 缩小卡片内边距 */
+    border-radius: 3px;
+    box-shadow: 0 0px 5px rgba(0,0,0,0.05); /* 更轻的阴影 */
+    transform: translateY(0);
+    border: 1px solid #EEEEEE; /* 极细边框，几乎不可见 */
+    height: 100%; /* 确保高度统一，方便布局 */
+    display: flex; /* 使用 flex 布局居中文本 */
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden; /* 确保内部文本溢出隐藏 */
+    background-color: #FDFDFD; /* 略微偏白的背景，增加层次感 */
+    transition: all 0.2s ease-out; /* 增加背景色的过渡 */
+}
+
+.timeline-item.overview-mode-active .timeline-content::before {
+    display: none; /* 概览模式下移除顶部线 */
+}
+
+.timeline-item.overview-mode-active .timeline-content:hover {
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1); /* 提升阴影 */
+    transform: translateY(-3px); /* 轻轻提升效果 */
+    border-color: #88BBDD; /* hover时边框颜色变化 */
+    background-color: #F8F8F8; /* hover时背景色更明显 */
+}
+
+/* 根据事件类型调整概览卡片的背景色或边框色，增加生动性 */
+.timeline-item.overview-mode-active.china .timeline-content {
+    border: 1px solid rgba(136, 187, 221, .3); /* 中国事件柔和蓝色边框 */
+    background-color: rgba(136, 187, 221, .05); /* 中国事件柔和蓝色背景 */
+}
+.timeline-item.overview-mode-active.world .timeline-content {
+    border: 1px solid rgba(204, 170, 238, .3); /* 世界事件柔和紫色边框 */
+    background-color: rgba(204, 170, 238, .05); /* 世界事件柔和紫色背景 */
+}
+.timeline-item.overview-mode-active.china .timeline-content:hover {
+    background-color: rgba(136, 187, 221, .15);
+}
+.timeline-item.overview-mode-active.world .timeline-content:hover {
+    background-color: rgba(204, 170, 238, .15);
+}
+
+
+.timeline-item.overview-mode-active .timeline-year {
+    font-size: 0.7em; /* 进一步缩小年份字体 */
+    padding: 0;
+    background-color: transparent; /* 移除背景色 */
+    color: #607D8B;
+    font-weight: 500;
+    /* 优化：为了防止标题过长影响显示，年份和标题可以共用空间 */
+    /* text-align: left; */ /* 考虑左对齐，但会破坏居中网格 */
+    /* width: 100%; */
+}
+
+.timeline-item.overview-mode-active .timeline-title {
+    font-size: 0.8em; /* 进一步缩小标题字体 */
+    margin-bottom: 0;
+    white-space: nowrap; /* 强制单行 */
+    overflow: hidden;
+    text-overflow: ellipsis; /* 显示省略号 */
+    font-weight: 600;
+    line-height: 1.2; /* 调整行高，确保文字垂直居中 */
+    color: #333;
+    padding-top: 2px; /* 标题与年份之间留一点空 */
+    width: 100%; /* 确保标题撑满卡片宽度 */
+    box-sizing: border-box; /* 包含 padding 在内 */
+}
+
+.timeline-item.overview-mode-active .timeline-description,
+.timeline-item.overview-mode-active .timeline-tag {
+    display: none; /* 概览模式下隐藏描述和标签 */
+}
+
+/* Tooltip 样式 */
+.timeline-item .overview-tooltip {
+    visibility: hidden;
+    opacity: 0;
+    background-color: rgba(0, 0, 0, 0.85); /* 更深一点的背景 */
+    color: #fff;
+    text-align: center;
+    border-radius: 4px;
+    padding: 8px 12px;
+    position: absolute;
+    z-index: 1001; /* 确保在模态框之下，但高于其他元素 */
+    bottom: calc(100% + 10px); /* 在卡片上方显示，留出箭头空间 */
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-size: 0.85rem;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    pointer-events: none; /* 避免阻碍鼠标事件 */
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+.timeline-item .overview-tooltip::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: rgba(0, 0, 0, 0.85) transparent transparent transparent;
+}
+
+.timeline-item.overview-mode-active:hover .overview-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* 确保模态框在概览模式下依然能正常弹出和层叠 */
+.modal {
+    z-index: 2000; /* 比其他元素更高 */
+}
+
+
+/* --- 响应式设计 --- */
+@media (max-width: 768px) {
+  .container {
+    padding: 20px 10px; /* 减少移动端容器内边距 */
+  }
+
+  header {
+      margin-bottom: 50px; /* 移动端头部下方留白 */
+  }
+
+  h1 {
+    font-size: 2rem; /* 移动端更小标题 */
+    margin-bottom: 20px;
+  }
+  .subtitle {
+      font-size: 0.9rem; /* 移动端副标题更小 */
+      margin-top: 10px;
+  }
+
+
+  /* 浮动按钮在移动端的位置和大小 */
+  #overviewToggleFloatingBtn {
+      width: 50px;
+      height: 50px;
+      font-size: 1.5em;
+      bottom: 20px;
+      right: 20px;
+  }
+
+  .timeline::before {
+    left: 20px; /* 移动端时间轴线更靠左 */
+  }
+
+  .timeline-item.china,
+  .timeline-item.world {
+    padding: 0 0 0 50px; /* 调整移动端卡片位置 */
+  }
+
+  .timeline-point {
+    left: 20px; /* 移动端时间点更靠左 */
+  }
+
+  .timeline-content {
+    margin: 0 0 0 30px !important;
+    padding: 25px;
+  }
+
+  .timeline-year {
+    font-size: 1rem;
+    margin-bottom: 8px;
+  }
+
+  .timeline-title {
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+  }
+
+  .timeline-description {
+    font-size: 0.9rem;
+  }
+
+  .modal-content {
+    margin: 3% auto;
+    width: 95%;
+  }
+
+  .modal-header,
+  .modal-body {
+    padding: 25px;
+  }
+
+  .close {
+    top: 15px;
+    right: 15px;
+    font-size: 2rem;
+    width: 36px;
+    height: 36px;
+  }
+
+  .modal-title {
+    font-size: 1.8rem;
+  }
+
+  .modal-year {
+    font-size: 1rem;
+  }
+
+  .modal-description {
+    font-size: .9rem;
+    margin-bottom: 20px;
+  }
+
+  .modal-expanded {
+    font-size: .85rem;
+    padding-top: 20px;
+    margin-top: 20px;
+  }
+
+  .modal-navigation {
+    margin-top: 30px;
+    padding-top: 20px;
+  }
+
+  .nav-btn {
+    font-size: .9rem;
+    padding: 8px 15px;
+  }
+
+  /* 概览模式在小屏幕下也适用，可能需要微调宽度 */
+  .timeline-item.overview-mode-active {
+    width: 80px; /* 移动端概览模式下条目更窄 */
+    height: 55px; /* 移动端概览模式下固定高度 */
+    margin-bottom: 5px;
+    gap: 5px;
+  }
+
+  .timeline-item.overview-mode-active .timeline-year {
+    font-size: 0.6em;
+  }
+
+  .timeline-item.overview-mode-active .timeline-title {
+    font-size: 0.7em;
+  }
+
+  .timeline-year-group {
+    font-size: 1.2rem;
+    margin: 10px 0;
+    padding: 3px 0;
+  }
+
+  .timeline.overview-mode-active {
+      height: calc(100vh - 120px); /* 移动端概览模式高度调整 */
+  }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>历史时间线</h1>
+    <p class="subtitle">人类文明的重要时刻</p>
+  </header>
+
+  <button id="overviewToggleFloatingBtn" class="nav-btn" title="切换概览模式">
+      &#9783; </button>
+
+  <div class="timeline" id="timeline"></div>
+</div>
+
+<div id="myModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span class="close">&times;</span>
+      <h2 class="modal-title" id="modal-title"></h2>
+      <div class="modal-year" id="modal-year"></div>
+      <div class="modal-tag" id="modal-tag"></div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-description" id="modal-description"></div>
+      <div class="modal-expanded" id="modal-expanded"></div>
+      <div class="modal-navigation">
+        <button class="nav-btn" id="prev-btn"><span>←</span> 上一个</button>
+        <button class="nav-btn" id="next-btn">下一个 <span>→</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 定义学术历史时期分类
+// 注意：这些年份是大致的界限，学术界可能存在争议或更细致的划分
+const HISTORICAL_PERIODS = {
+    world: [
+        { name: "史前时期", start: -2500000, end: -3500 }, // 文字发明前
+        { name: "古代文明", start: -3500, end: 476 },      // 西罗马帝国灭亡
+        { name: "中古时期", start: 476, end: 1453 },      // 君士坦丁堡陷落
+        { name: "近代早期", start: 1453, end: 1789 },     // 法国大革命爆发
+        { name: "现代时期", start: 1789, end: 1945 },     // 二战结束
+        { name: "当代时期", start: 1945, end: 9999 }      // 至今
+    ],
+    china: [
+        { name: "史前时期", start: -2500000, end: -2070 }, // 夏朝建立前
+        { name: "先秦时期", start: -2070, end: -221 },    // 秦统一前
+        { name: "秦汉时期", start: -221, end: 220 },      // 东汉末
+        { name: "魏晋南北朝时期", start: 220, end: 589 },  // 隋统一
+        { name: "隋唐五代时期", start: 589, end: 960 },   // 宋建立
+        { name: "宋元明清时期", start: 960, end: 1911 },   // 辛亥革命
+        { name: "近现代时期", start: 1911, end: 9999 }    // 至今
+    ]
+};
+
+
+// DOM 元素引用
+const DOM = {
+  timeline: document.getElementById('timeline'),
+  modal: document.getElementById('myModal'),
+  modalTitle: document.getElementById('modal-title'),
+  modalYear: document.getElementById('modal-year'),
+  modalTag: document.getElementById('modal-tag'),
+  modalDescription: document.getElementById('modal-description'),
+  modalExpanded: document.getElementById('modal-expanded'),
+  closeModalButton: document.querySelector('.close'),
+  prevModalButton: document.getElementById('prev-btn'),
+  nextModalButton: document.getElementById('next-btn'),
+  timelineItems: [], // 将所有时间轴条目DOM元素存储在此
+
+  overviewToggleFloatingBtn: document.getElementById('overviewToggleFloatingBtn'), // 对浮动概览模式切换按钮的引用
+};
+
+// 全局状态变量
+let HISTORICAL_EVENTS = []; // 声明为空数组，数据将从 JSON 加载
+let currentModalIndex = 0;
+let isOverviewMode = false; // 概览模式状态
+
+// ---- 配置常量 ----
+const SCROLL_OFFSET = 100; // 滚动到元素时顶部的偏移量
+const MODAL_OPEN_DELAY = 10;
+const MODAL_CLOSE_DELAY = 300;
+const SCROLL_THROTTLE_TIME = 50; // 滚动事件节流时间
+const ITEM_ANIMATION_DELAY_MULTIPLIER = 100; // 时间轴条目动画延迟乘数
+const VIEWPORT_VISIBLE_THRESHOLD = 0.85; // 元素多少比例进入视口时触发可见性动画
+
+// ---- 辅助函数 ----
+
+/**
+ * 将年份字符串转换为可排序的数字。
+ * 处理“公元前”和“万年”。
+ * @param {string} yearString
+ * @returns {number}
+ */
+const getSortableYearValue = yearString => {
+    let yearNumber = 0;
+    const isBeforeCommonEra = yearString.includes('前') || yearString.includes('公元前');
+    const numberMatch = yearString.match(/(\d+(\.\d+)?)/); // 匹配数字，包括小数
+
+    if (numberMatch && numberMatch[1]) {
+        yearNumber = parseFloat(numberMatch[1]); // 使用 parseFloat 处理可能存在的“万年”转换
+        if (yearString.includes('万')) {
+            yearNumber *= 10000;
+        }
+    } else {
+        return isBeforeCommonEra ? -Infinity : Infinity;
+    }
+    return isBeforeCommonEra ? -yearNumber : yearNumber;
+};
+
+/**
+ * 提取年份的数字部分进行快速跳转排序和分组。
+ * 处理“约公元前”、“公元前”、“公元”、“约”等前缀。
+ * @param {string} yearString 年份字符串，例如 "约公元前250万年", "公元前221年", "公元1949年"
+ * @returns {number} 转换后的数字年份
+ */
+const getNumericYearForJump = (yearString) => {
+    let yearValue = 0;
+    const isBCE = yearString.includes('前');
+    const numberMatch = yearString.match(/(\d+(\.?\d+)?)/); // 匹配数字，包括小数
+
+    if (numberMatch && numberMatch[1]) {
+        yearValue = parseFloat(numberMatch[1]); // 使用parseFloat处理可能存在的“万年”转换
+
+        if (yearString.includes('万年')) { // 约公元前250万年
+            yearValue = yearValue * 10000;
+        } else if (yearString.includes('万')) { // 约公元前1万年
+             yearValue = yearValue * 10000;
+        }
+    }
+
+    return isBCE ? -yearValue : yearValue;
+};
+
+
+/**
+ * 节流函数 (用于优化滚动事件性能)
+ * @param {Function} func 要节流的函数
+ * @param {number} limit 最小调用间隔（毫秒）
+ * @returns {Function} 节流后的函数
+ */
+const throttle = (func, limit) => {
+  let inThrottle;
+  return function() {
+    const args = arguments;
+    const context = this;
+    if (!inThrottle) {
+      inThrottle = true;
+      requestAnimationFrame(() => { // 使用 requestAnimationFrame 优化动画帧更新
+          func.apply(context, args);
+          setTimeout(() => inThrottle = false, limit);
+      });
+    }
+  };
+};
+
+// --- 时间轴渲染 ---
+
+/**
+ * 渲染历史事件条目。
+ * 此函数现在将事件和学术时期分类标签一起渲染。
+ */
+const renderTimelineItems = () => {
+  DOM.timeline.innerHTML = ''; // 清空现有条目，以便重新渲染或筛选
+  DOM.timelineItems = []; // 清空数组
+
+  let lastWorldPeriod = null; // 记录上一个世界历史时期标签
+  let lastChinaPeriod = null; // 记录上一个中国历史时期标签
+
+  HISTORICAL_EVENTS.forEach((event, index) => {
+    const numericYear = getNumericYearForJump(event.year);
+    const eventType = event.type; // 'china' or 'world'
+
+    // 根据事件类型，找到对应的历史时期并插入标签
+    const relevantPeriods = HISTORICAL_PERIODS[eventType];
+    const periodForEvent = relevantPeriods.find(p => numericYear >= p.start && numericYear < p.end);
+
+    if (periodForEvent) {
+        if (eventType === 'world' && lastWorldPeriod !== periodForEvent.name) {
+            const periodTitleElement = document.createElement('div');
+            periodTitleElement.className = `timeline-period-title world-period`;
+            periodTitleElement.textContent = `世界历史 - ${periodForEvent.name}`;
+            DOM.timeline.appendChild(periodTitleElement);
+            lastWorldPeriod = periodForEvent.name;
+        } else if (eventType === 'china' && lastChinaPeriod !== periodForEvent.name) {
+            const periodTitleElement = document.createElement('div');
+            periodTitleElement.className = `timeline-period-title china-period`;
+            periodTitleElement.textContent = `中国历史 - ${periodForEvent.name}`;
+            DOM.timeline.appendChild(periodTitleElement);
+            lastChinaPeriod = periodForEvent.name;
+        }
+    }
+
+    // 继续渲染事件条目
+    const item = document.createElement('div');
+    item.className = `timeline-item ${event.type}`;
+    item.id = `event-${index}`; // 为每个条目添加唯一的ID，方便跳转
+    item.dataset.index = index;
+    item.dataset.yearValue = getSortableYearValue(event.year);
+
+    const itemTypeTag = event.type === 'china' ? '中国' : '世界';
+    item.innerHTML = `
+      <div class="timeline-point ${event.type}-point"></div>
+      <div class="timeline-content">
+        <span class="timeline-tag ${itemTypeTag} ${event.type}-tag">${itemTypeTag}</span>
+        <div class="timeline-year">${event.year}</div>
+        <div class="timeline-title">${event.title}</div>
+        <div class="timeline-description">${event.description}</div>
+        <div class="overview-tooltip">${event.year}: ${event.title}</div> </div>
+    `;
+    DOM.timeline.appendChild(item);
+    DOM.timelineItems.push(item);
+  });
+};
+
+/**
+ * 格式化年份标签，使其更易读
+ * 此函数现在主要用于学术时期标签，而非旧的数字年份分组
+ * @param {number} year 年份数字
+ * @param {number} interval 仅为兼容，不再直接用于计算标签文本
+ * @returns {string} 格式化的年份字符串
+ */
+const formatYearLabel = (year, interval) => {
+    if (year === 0) return '公元元年附近';
+    if (year < 0) {
+        const absYear = Math.abs(year);
+        if (absYear >= 1000000) return `公元前${(absYear/1000000).toFixed(0)}百万年`;
+        if (absYear >= 10000) return `公元前${Math.floor(absYear/10000)}万年`;
+        if (absYear >= 1000) return `公元前${Math.floor(absYear/1000)}千年`;
+        return `公元前${absYear}年`;
+    }
+    if (year >= 1000000) return `公元${(year/1000000).toFixed(0)}百万年`;
+    if (year >= 10000) return `公元${Math.floor(year/10000)}万年`;
+    if (year >= 1000) return `公元${Math.floor(year/1000)}千年`;
+    return `公元${year}年`;
+};
+
+
+// --- 模态框功能 ---
+
+/**
+ * 更新模态框内容。
+ */
+const updateModalContent = (index) => {
+  const event = HISTORICAL_EVENTS[index];
+  DOM.modalTitle.textContent = event.title;
+  DOM.modalYear.textContent = event.year;
+  DOM.modalTag.textContent = event.type === 'china' ? '中国历史' : '世界历史';
+  DOM.modalTag.className = `modal-tag ${event.type}-tag`;
+  DOM.modalDescription.textContent = event.description;
+  DOM.modalExpanded.innerHTML = event.expandedDescription || '<p>暂无更多详细信息。</p>';
+  DOM.prevModalButton.disabled = index === 0;
+  DOM.nextModalButton.disabled = index === HISTORICAL_EVENTS.length - 1;
+};
+
+/**
+ * 显示模态框。
+ */
+const showModal = (index) => {
+  currentModalIndex = index;
+  updateModalContent(currentModalIndex);
+  DOM.modal.style.display = 'block';
+  setTimeout(() => DOM.modal.classList.add('active'), MODAL_OPEN_DELAY);
+  DOM.modal.querySelector('.modal-body').scrollTop = 0;
+};
+
+/**
+ * 隐藏模态框。
+ */
+const hideModal = () => {
+  DOM.modal.classList.remove('active');
+  setTimeout(() => DOM.modal.style.display = 'none', MODAL_CLOSE_DELAY);
+};
+
+/**
+ * 模态框内部导航。
+ */
+const navigateThroughModal = (direction) => {
+  if (direction === 'prev' && currentModalIndex > 0) {
+    showModal(--currentModalIndex);
+  } else if (direction === 'next' && currentModalIndex < HISTORICAL_EVENTS.length - 1) {
+    showModal(++currentModalIndex);
+  }
+};
+
+// --- 全局事件处理 ---
+
+/**
+ * 处理页面滚动事件。
+ * 检查时间轴条目可见性动画。
+ */
+const handlePageScroll = throttle(() => {
+  if (isOverviewMode) {
+      // 概览模式下，所有符合筛选条件的元素都应该立即显示，不需要滚动动画
+      DOM.timelineItems.forEach(item => {
+          if (item.style.display !== 'none') {
+              item.classList.add('visible'); // 确保概览模式下也添加 visible 类以显示
+          }
+      });
+      // 在概览模式下，也要确保时期标签是可见的
+      document.querySelectorAll('.timeline-period-title').forEach(title => {
+          title.classList.add('visible');
+      });
+      return; // 概览模式下不执行原有的滚动动画逻辑
+  }
+
+  // 常规模式下的滚动动画逻辑
+  DOM.timelineItems.forEach(item => {
+    if (item.style.display !== 'none') { // 只有未被筛选隐藏的元素才需要检查
+      const rect = item.getBoundingClientRect();
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      if (rect.top <= viewportHeight * VIEWPORT_VISIBLE_THRESHOLD && rect.bottom >= 0) {
+        item.classList.add('visible');
+      } else {
+        item.classList.remove('visible');
+      }
+    }
+  });
+  // 隐藏时期标签在常规模式下
+  document.querySelectorAll('.timeline-period-title').forEach(title => {
+      title.classList.remove('visible');
+  });
+}, SCROLL_THROTTLE_TIME);
+
+// --- 概览模式切换逻辑 ---
+const toggleOverviewMode = () => {
+    isOverviewMode = !isOverviewMode; // 切换状态
+
+    // 切换 body 的滚动条 (body不再负责滚动，由timeline容器负责)
+    document.body.classList.toggle('overview-active', isOverviewMode);
+    // 切换时间线容器的概览模式样式
+    DOM.timeline.classList.toggle('overview-mode-active', isOverviewMode);
+    // 切换浮动按钮的激活状态
+    DOM.overviewToggleFloatingBtn.classList.toggle('active', isOverviewMode);
+
+    // 根据模式切换，改变时间线内容的显示/隐藏样式
+    DOM.timelineItems.forEach(item => {
+        item.classList.toggle('overview-mode-active', isOverviewMode); // 为每个条目应用概览模式样式
+        // 强制所有概览模式下的条目可见，移除滚动动画带来的延迟
+        item.classList.remove('visible'); // 移除动画，让它在切换后重新应用或保持可见
+        if (isOverviewMode) {
+            item.classList.add('visible');
+        }
+    });
+    // 切换时期标签的可见性
+    document.querySelectorAll('.timeline-period-title').forEach(title => {
+        title.classList.toggle('overview-mode-active', isOverviewMode);
+        if (isOverviewMode) {
+            title.classList.add('visible');
+        } else {
+            title.classList.remove('visible');
+        }
+    });
+
+    // 强制触发一次滚动检查，以处理可能出现的动画状态问题
+    handlePageScroll();
+};
+
+
+// --- 筛选功能 (已移除筛选下拉框，此函数不再需要，但保留为空，以防其他地方调用报错) ---
+const applyFilter = () => {
+  // 由于筛选功能被移除，此函数现在不做任何事情
+  // 或者你可以根据需要在概览模式下实现一些内部筛选逻辑
+  handlePageScroll(); // 强制刷新可见性
+};
+
+// --- 填充年份快速跳转下拉菜单 (已移除跳转下拉框，此函数不再需要) ---
+const populateJumpYears = () => {
+    // 由于年份快速跳转功能被移除，此函数现在不做任何事情
+};
+
+
+// --- 初始化 ---
+
+/**
+ * 页面加载完成后的主初始化函数。
+ */
+const initializePage = async () => { // **添加 async 关键字**
+  try {
+    // **异步加载 JSON 数据**
+    const response = await fetch('events.json'); // 假设 events.json 在同一目录下
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const events = await response.json();
+    HISTORICAL_EVENTS = events; // 将加载的数据赋值给全局变量
+
+    // 0. 排序历史事件数据 (仅执行一次)
+    HISTORICAL_EVENTS.sort((a, b) => getSortableYearValue(a.year) - getSortableYearValue(b.year));
+
+    renderTimelineItems(); // 1. 渲染时间轴条目
+
+    // 2. 填充快速跳转年份 (现在为空函数，因为功能已移除)
+    populateJumpYears();
+
+    // 3. 事件监听器集中绑定
+
+    // 时间轴点击事件委托
+    DOM.timeline.addEventListener('click', (e) => {
+      const clickedContent = e.target.closest('.timeline-content');
+      if (clickedContent) {
+        const index = parseInt(clickedContent.parentElement.dataset.index, 10);
+        showModal(index);
+      }
+    });
+
+    // 模态框控制
+    DOM.closeModalButton.addEventListener('click', hideModal);
+    DOM.modal.addEventListener('click', (e) => {
+      if (e.target === DOM.modal) hideModal();
+    });
+    DOM.prevModalButton.addEventListener('click', () => navigateThroughModal('prev'));
+    DOM.nextModalButton.addEventListener('click', () => navigateThroughModal('next'));
+
+    // 全局键盘事件
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && DOM.modal.style.display === 'block') {
+        hideModal();
+      }
+    });
+
+    // 页面滚动事件：处理可见性动画
+    window.addEventListener('scroll', handlePageScroll);
+
+    // 窗口大小变化时重新检查时间轴条目可见性
+    window.addEventListener('resize', handlePageScroll);
+
+    // 新增：概览模式切换按钮监听
+    DOM.overviewToggleFloatingBtn.addEventListener('click', toggleOverviewMode);
+
+
+    // 初始应用一次筛选 (现在为空函数) 和滚动检查，确保页面加载时状态正确
+    applyFilter();
+    handlePageScroll(); // 首次加载时触发一次，确保可见元素有动画
+
+  } catch (error) {
+    console.error('Failed to load historical events:', error);
+    // 在这里可以添加用户友好的错误提示，例如：
+    // DOM.timeline.innerHTML = '<p style="text-align: center; color: red;">加载历史事件失败，请检查文件是否存在或网络连接。</p>';
+  }
+};
+
+// 页面加载完成时执行所有初始化逻辑
+document.addEventListener('DOMContentLoaded', initializePage);
+</script>
+</body>
+</html>
